@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>PCA Studio — Python Edition</title>
+<link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo">
+        <span class="logo-icon">◈</span>
+        <span class="logo-text">PCA Studio</span>
+      </div>
+      <span class="badge">Python · Model Training</span>
+      <span id="modelStatus" class="status-pill untrained">● Untrained</span>
+    </div>
+    <div class="topbar-right">
+      <button class="btn-ghost" id="saveBtn" onclick="saveModel()" disabled>↓ Save Model</button>
+      <label class="btn-ghost" style="cursor:pointer">
+        ↑ Load Model
+        <input type="file" id="loadInput" accept=".json" style="display:none" onchange="loadModel(this)"/>
+      </label>
+      <button class="btn-ghost danger" onclick="resetAll()">✕ Reset</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" onclick="switchTab('data')"><span class="tab-num">01</span>Data</button>
+    <button class="tab" onclick="switchTab('split')"><span class="tab-num">02</span>Split</button>
+    <button class="tab" onclick="switchTab('train')"><span class="tab-num">03</span>Train</button>
+    <button class="tab" onclick="switchTab('results')"><span class="tab-num">04</span>Results</button>
+    <button class="tab" onclick="switchTab('evaluate')"><span class="tab-num">05</span>Evaluate</button>
+    <button class="tab" onclick="switchTab('reconstruct')"><span class="tab-num">06</span>Reconstruct</button>
+    <button class="tab" onclick="switchTab('anomaly')"><span class="tab-num">07</span>Anomaly</button>
+    <button class="tab" onclick="switchTab('project')"><span class="tab-num">08</span>Projection</button>
+  </nav>
+
+  <!-- ═══ TAB 1: DATA ═══ -->
+  <section class="panel active" id="panel-data">
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-label">Total Images</div><div class="stat-val accent" id="m-imgs">0</div></div>
+      <div class="stat-card"><div class="stat-label">Image Size</div><div class="stat-val" id="m-size">—</div></div>
+      <div class="stat-card"><div class="stat-label">Feature Dims</div><div class="stat-val" id="m-dims">—</div></div>
+      <div class="stat-card"><div class="stat-label">Matrix Shape</div><div class="stat-val" id="m-mat">—</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">Load Images</div>
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <div class="drop-glyph">⊞</div>
+        <div class="drop-title">Drop images here or click to browse</div>
+        <div class="drop-sub">PNG, JPG, GIF, BMP, WEBP · Upload as many as you want</div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" multiple style="display:none" onchange="handleFiles(this.files)"/>
+      <div id="uploadProgress" style="display:none;margin-top:12px;">
+        <div class="progress-bar"><div class="progress-fill" id="uploadFill" style="width:0%"></div></div>
+        <div class="progress-label" id="uploadLabel">Uploading...</div>
+      </div>
+    </div>
+
+    <div class="card" id="imgGridCard" style="display:none">
+      <div class="card-head-row">
+        <span class="card-head">Dataset</span>
+        <button class="btn-sm danger" onclick="clearAll()">Clear all</button>
+      </div>
+      <div class="img-grid" id="imgGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">Preprocessing</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Resize to</label>
+          <div class="slider-wrap">
+            <input type="range" min="8" max="64" value="32" step="8" id="sizeSlider" oninput="updateSizeLabel()"/>
+            <span class="slider-badge" id="sizeVal">32×32</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Colour mode</label>
+          <select id="colorMode" onchange="updateMetrics()">
+            <option value="gray">Grayscale</option>
+            <option value="rgb">RGB</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-banner">
+      <span class="info-icon">→</span>
+      Next: go to <strong>02 Split</strong> to divide images into training and test sets.
+    </div>
+  </section>
+
+  <!-- ═══ TAB 2: SPLIT ═══ -->
+  <section class="panel" id="panel-split">
+    <div class="card">
+      <div class="card-head">Train / Test Split</div>
+      <p class="body-text">In machine learning, data is always split into two groups. The <strong>training set</strong> teaches the model. The <strong>test set</strong> is kept hidden and used only to measure how well the model works on new, unseen data. This is how we know if a model truly learned or just memorised.</p>
+      <div class="form-grid" style="margin-top:18px">
+        <div class="form-group">
+          <label class="form-label">Training size: <span id="splitVal">80</span>%</label>
+          <input type="range" min="50" max="90" value="80" step="5" id="splitSlider" oninput="previewSplit()"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Strategy</label>
+          <select id="splitStrategy" onchange="previewSplit()">
+            <option value="random">Random shuffle</option>
+            <option value="ordered">Keep file order</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="split-preview">
+      <div class="card split-card">
+        <div class="card-head train-accent">Training Set — <span id="trainCount">0</span> images</div>
+        <div class="img-grid small" id="trainGrid"><p class="muted-text">Upload images first</p></div>
+      </div>
+      <div class="card split-card">
+        <div class="card-head test-accent">Test Set — <span id="testCount">0</span> images</div>
+        <div class="img-grid small" id="testGrid"><p class="muted-text">Upload images first</p></div>
+      </div>
+    </div>
+
+    <div class="info-banner warn">
+      <span class="info-icon">!</span>
+      <strong>Never test on training data.</strong> Testing on data the model already saw gives a falsely perfect score — this is called overfitting.
+    </div>
+
+    <button class="btn-primary large" id="confirmSplitBtn" onclick="confirmSplit()" disabled>Confirm Split and Go to Training →</button>
+  </section>
+
+  <!-- ═══ TAB 3: TRAIN ═══ -->
+  <section class="panel" id="panel-train">
+    <div class="card">
+      <div class="card-head">Hyperparameters</div>
+      <p class="body-text">Hyperparameters are settings you choose <em>before</em> training. Different values produce different models. Trying many combinations is called <em>hyperparameter tuning</em>.</p>
+      <div class="form-grid" style="margin-top:18px">
+        <div class="form-group">
+          <label class="form-label">Principal components (k): <span id="nCompVal">10</span></label>
+          <input type="range" min="1" max="50" value="10" step="1" id="nCompSlider" oninput="document.getElementById('nCompVal').textContent=this.value"/>
+          <p class="hint-text">Try k=5, k=10, k=20 and compare results in the Evaluate tab.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mean centering</label>
+          <select id="centerMode">
+            <option value="yes">Yes (standard PCA)</option>
+            <option value="no">No (raw data)</option>
+          </select>
+          <p class="hint-text">Almost always use Yes. Removes baseline brightness so PCA finds real variation.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">Training</div>
+      <div class="train-row">
+        <button class="btn-primary" id="trainBtn" onclick="runTraining()" disabled>Run PCA Training</button>
+        <span class="muted-text" id="trainOnLabel"></span>
+      </div>
+      <div class="progress-bar" style="margin-top:14px"><div class="progress-fill" id="trainFill" style="width:0%"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">Training Log</div>
+      <div class="log-box" id="trainLog"><span class="log-info">Confirm split first...</span></div>
+    </div>
+  </section>
+
+  <!-- ═══ TAB 4: RESULTS ═══ -->
+  <section class="panel" id="panel-results">
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-label">Components (k)</div><div class="stat-val accent" id="r-comp">—</div></div>
+      <div class="stat-card"><div class="stat-label">Variance Explained</div><div class="stat-val accent" id="r-var">—</div></div>
+      <div class="stat-card"><div class="stat-label">Top Eigenvalue</div><div class="stat-val" id="r-eig">—</div></div>
+      <div class="stat-card"><div class="stat-label">Compression</div><div class="stat-val" id="r-comp2">—</div></div>
+    </div>
+
+    <div class="chart-row">
+      <div class="card chart-card">
+        <div class="card-head">Scree Plot — Variance per Component</div>
+        <div class="chart-wrap"><canvas id="screeChart"></canvas></div>
+      </div>
+      <div class="card chart-card">
+        <div class="card-head">Cumulative Variance Explained</div>
+        <div class="chart-wrap"><canvas id="cumChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">Eigenfaces — Principal Components Visualised</div>
+      <p class="body-text">Each thumbnail is a principal component rendered as an image. They show the directions of maximum variation in your training images.</p>
+      <div class="eigen-strip" id="eigenRow"><span class="muted-text">Train to see eigenfaces</span></div>
+    </div>
+  </section>
+
+  <!-- ═══ TAB 5: EVALUATE ═══ -->
+  <section class="panel" id="panel-evaluate">
+    <div class="card">
+      <div class="card-head">Model Evaluation</div>
+      <p class="body-text">We measure how well the model reconstructs training images (train error) vs test images it never saw (test error). A large gap between them means the model is overfitting — it memorised training data but cannot generalise to new images.</p>
+      <button class="btn-primary" id="evalBtn" onclick="runEvaluation()" disabled>Run Evaluation</button>
+    </div>
+
+    <div id="evalMetrics" class="stat-row" style="display:none">
+      <div class="stat-card"><div class="stat-label">Train MSE</div><div class="stat-val accent" id="e-trainMSE">—</div></div>
+      <div class="stat-card"><div class="stat-label">Test MSE</div><div class="stat-val" id="e-testMSE">—</div></div>
+      <div class="stat-card"><div class="stat-label">Generalisation Gap</div><div class="stat-val" id="e-gap">—</div></div>
+      <div class="stat-card"><div class="stat-label">Verdict</div><div class="stat-val small" id="e-verdict">—</div></div>
+    </div>
+
+    <div id="evalCharts" class="chart-row" style="display:none">
+      <div class="card chart-card">
+        <div class="card-head">Reconstruction Error per Image</div>
+        <div class="chart-wrap tall"><canvas id="evalBarChart"></canvas></div>
+      </div>
+      <div class="card chart-card">
+        <div class="card-head">Train vs Test MSE across k values</div>
+        <div class="chart-wrap tall"><canvas id="kCurveChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card" id="evalInsightCard" style="display:none">
+      <div class="card-head">What Does This Mean?</div>
+      <div id="evalInsight" class="insight-text"></div>
+    </div>
+  </section>
+
+  <!-- ═══ TAB 6: RECONSTRUCT ═══ -->
+  <section class="panel" id="panel-reconstruct">
+    <div class="card">
+      <div class="card-head">Image Reconstruction</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Image</label>
+          <select id="reconSelect" onchange="runReconstruction()"><option>Train the model first</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Components: <span id="reconVal">10</span></label>
+          <input type="range" min="1" max="50" value="10" step="1" id="reconSlider"
+            oninput="document.getElementById('reconVal').textContent=this.value; runReconstruction()"/>
+        </div>
+      </div>
+    </div>
+
+    <div id="reconOutput" style="display:none">
+      <div class="recon-row">
+        <div class="card recon-card">
+          <div class="card-head">Original</div>
+          <div class="canvas-frame"><img id="origImg" src="" alt="original"/></div>
+          <div class="canvas-note" id="origDims"></div>
+        </div>
+        <div class="card recon-card">
+          <div class="card-head">PCA Reconstruction</div>
+          <div class="canvas-frame"><img id="reconImg" src="" alt="reconstruction"/></div>
+          <div class="canvas-note">k=<span id="reconUsed"></span> · MSE: <span id="reconMSE"></span></div>
+        </div>
+        <div class="card recon-card">
+          <div class="card-head">Residual Error ×5</div>
+          <div class="canvas-frame"><img id="residImg" src="" alt="residual"/></div>
+          <div class="canvas-note">Bright = larger error</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ TAB 7: ANOMALY ═══ -->
+  <section class="panel" id="panel-anomaly">
+    <div class="card">
+      <div class="card-head">Anomaly Detection</div>
+      <p class="body-text">The model learns what normal images look like. Unusual images cannot be reconstructed well — their error (MSE) is high. We flag images above a threshold as anomalies. This technique is used in quality control, fraud detection, and medical imaging.</p>
+      <div class="form-grid" style="margin-top:16px">
+        <div class="form-group">
+          <label class="form-label">Threshold multiplier: <span id="threshVal">2.0</span>×</label>
+          <input type="range" min="10" max="50" value="20" step="1" id="threshSlider" oninput="updateThreshold()" disabled/>
+          <p class="hint-text">Threshold = mean_train_error × multiplier. Higher = fewer anomalies flagged.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Test a new image</label>
+          <label class="btn-upload">
+            Upload image to test for anomaly
+            <input type="file" id="anomalyInput" accept="image/*" style="display:none" onchange="testAnomaly(this)"/>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="anomalyScoreCard" style="display:none">
+      <div class="card-head">Anomaly Scores — All Dataset Images</div>
+      <div class="chart-wrap tall"><canvas id="anomalyChart"></canvas></div>
+    </div>
+
+    <div class="card" id="anomalyResultCard" style="display:none">
+      <div class="card-head">Test Image Result</div>
+      <div class="anomaly-result">
+        <div class="anomaly-images">
+          <div><p class="canvas-note">Original</p><img id="aOrigImg" src="" alt=""/></div>
+          <div><p class="canvas-note">Reconstruction</p><img id="aReconImg" src="" alt=""/></div>
+          <div><p class="canvas-note">Residual ×5</p><img id="aResidImg" src="" alt=""/></div>
+        </div>
+        <div id="anomalyVerdict" class="anomaly-verdict"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ TAB 8: PROJECTION ═══ -->
+  <section class="panel" id="panel-project">
+    <div class="card">
+      <div class="card-head">2D Projection into PC Space</div>
+      <p class="body-text">Each dot is one image plotted using its scores on two principal components. Blue = training images, green = test images. Clusters in this space suggest similar images.</p>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">X axis</label>
+          <select id="pcX" onchange="runProjection()"><option value="0">PC 1</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Y axis</label>
+          <select id="pcY" onchange="runProjection()"><option value="1">PC 2</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="legend-row">
+        <span class="legend-item"><span class="dot train"></span>Training images</span>
+        <span class="legend-item"><span class="dot test"></span>Test images</span>
+      </div>
+      <div class="chart-wrap xtall"><canvas id="projChart"></canvas></div>
+    </div>
+  </section>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="/static/js/main.js"></script>
+</body>
+</html>
