@@ -1,3 +1,21 @@
+// ===== THEME SYSTEM =====
+function toggleTheme() {
+  document.body.classList.toggle("light");
+
+  if (document.body.classList.contains("light")) {
+    localStorage.setItem("theme", "light");
+  } else {
+    localStorage.setItem("theme", "dark");
+  }
+}
+
+// load saved theme
+window.addEventListener("DOMContentLoaded", () => {
+  const saved = localStorage.getItem("theme");
+  if (saved === "light") {
+    document.body.classList.add("light");
+  }
+});
 const SID = 'sess_' + Math.random().toString(36).slice(2, 10);
 let allImages = [];
 let splitData = null;
@@ -164,8 +182,12 @@ async function runTraining() {
 
     document.getElementById('trainFill').style.width = '100%';
     modelData = data;
-    logMsg(`Done! ${data.k} components explain ${data.final_var}% variance`, 'ok');
-    logMsg(`Top PC explains ${data.top_var}% · Matrix: ${data.N}×${data.D}`, 'ok');
+    logMsg(`Done! ${data.k || 0} components explain ${data.final_var || 0}% variance`, 'ok');
+
+logMsg(
+  `Top PC explains ${data.top_var || 'N/A'}% · Matrix: ${data.N || 'N/A'}×${data.D || 'N/A'}`,
+  'ok'
+);
 
     document.getElementById('modelStatus').className = 'status-pill trained';
     document.getElementById('modelStatus').textContent = '● Trained';
@@ -187,14 +209,30 @@ async function runTraining() {
 }
 
 function populateResults(data) {
-  document.getElementById('r-comp').textContent  = data.k;
-  document.getElementById('r-var').textContent   = data.final_var + '%';
-  document.getElementById('r-eig').textContent   = data.eigenvals[0].toFixed(3);
-  document.getElementById('r-comp2').textContent = (data.k / data.D * 100).toFixed(1) + '%';
+  document.getElementById('r-comp').textContent  = data.k || '—';
+  document.getElementById('r-var').textContent   = data.final_var ? data.final_var + '%' : '—';
 
-  const labels = data.var_ratios.map((_, i) => 'PC' + (i+1));
-  const screeData = data.var_ratios.map(v => parseFloat((v*100).toFixed(2)));
-  const cumData   = data.cum_var.map(v => parseFloat((v*100).toFixed(2)));
+  // ✅ SAFE eigenvalue access
+  if (data.eigenvals && data.eigenvals.length > 0) {
+    document.getElementById('r-eig').textContent = data.eigenvals[0].toFixed(3);
+  } else {
+    document.getElementById('r-eig').textContent = '—';
+  }
+
+  // ✅ SAFE compression %
+  if (data.D && data.k) {
+    document.getElementById('r-comp2').textContent = ((data.k / data.D) * 100).toFixed(1) + '%';
+  } else {
+    document.getElementById('r-comp2').textContent = '—';
+  }
+
+  // ✅ SAFE arrays
+  const varRatios = data.var_ratios || [];
+  const cumVar = data.cum_var || [];
+
+  const labels = varRatios.map((_, i) => 'PC' + (i+1));
+  const screeData = varRatios.map(v => parseFloat((v*100).toFixed(2)));
+  const cumData   = cumVar.map(v => parseFloat((v*100).toFixed(2)));
 
   if (screeChart) screeChart.destroy();
   screeChart = new Chart(document.getElementById('screeChart'), {
@@ -203,17 +241,15 @@ function populateResults(data) {
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: { x: { ticks: { color: '#8b93a8' }, grid: { color: 'rgba(255,255,255,0.04)' } },
-                y: { ticks: { color: '#8b93a8' }, grid: { color: 'rgba(255,255,255,0.04)' }, title: { display: true, text: '% variance', color: '#8b93a8' } } } }
+                y: { ticks: { color: '#8b93a8' }, grid: { color: 'rgba(255,255,255,0.04)' } } }
+    }
   });
 
   if (cumChart) cumChart.destroy();
   cumChart = new Chart(document.getElementById('cumChart'), {
     type: 'line',
-    data: { labels, datasets: [{ label: 'Cumulative %', data: cumData, borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.07)', fill: true, tension: 0.3, pointRadius: 3 }] },
-    options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: { x: { ticks: { color: '#8b93a8' }, grid: { color: 'rgba(255,255,255,0.04)' } },
-                y: { min: 0, max: 100, ticks: { color: '#8b93a8' }, grid: { color: 'rgba(255,255,255,0.04)' }, title: { display: true, text: '% cumulative', color: '#8b93a8' } } } }
+    data: { labels, datasets: [{ label: 'Cumulative %', data: cumData, borderColor: '#4ade80', fill: true }] },
+    options: { responsive: true, maintainAspectRatio: false }
   });
 }
 

@@ -186,6 +186,7 @@ def upload():
 
 @app.route('/clear', methods=['POST'])
 def clear():
+
     sid = request.json.get('sid', 'default')
     session_images[sid] = []
     session_model.pop(sid, None)
@@ -238,54 +239,97 @@ def train():
     is_rgb = data.get('is_rgb', False)
     k = int(data.get('k', 10))
     center = data.get('center', True)
+
     imgs = session_images.get(sid, [])
     sd = session_data.get(sid, {})
     train_idx = sd.get('train_idx', [])
     test_idx = sd.get('test_idx', [])
+
     if len(train_idx) < 2:
         return jsonify({'error': 'Confirm train/test split first'}), 400
+
+    # Convert images to vectors
     all_vecs = [img_to_vec(im['raw'], sz, is_rgb) for im in imgs]
     D = len(all_vecs[0])
+
     train_vecs = [all_vecs[i] for i in train_idx]
     N = len(train_vecs)
+
     mean = col_mean(train_vecs) if center else [0.0] * D
     centred_train = [vec_sub(v, mean) if center else v[:] for v in train_vecs]
-    k_safe = min(k, N - 1)
+
+    # 🔥 FIX 1: compute FULL components (not just k)
+    max_comp = min(N - 1, D)
+
     if D > N:
         G = gram_matrix(centred_train)
-        eigenvals, gram_evecs = power_iteration(G, N, k_safe)
-        eigenvecs = lift_eigenvectors(gram_evecs, centred_train)
+        eigenvals_full, gram_evecs = power_iteration(G, N, max_comp)
+        eigenvecs_full = lift_eigenvectors(gram_evecs, centred_train)
     else:
         cov = covariance_matrix(centred_train)
-        eigenvals, eigenvecs = power_iteration(cov, D, k_safe)
-    eigenvals = [abs(v) for v in eigenvals]
-    total_var = sum(eigenvals) or 1.0
+        eigenvals_full, eigenvecs_full = power_iteration(cov, D, max_comp)
+
+    # absolute values
+    eigenvals_full = [abs(v) for v in eigenvals_full]
+
+    # 🔥 FIX 2: sort eigenvalues (important)
+    pairs = list(zip(eigenvals_full, eigenvecs_full))
+    pairs.sort(key=lambda x: x[0], reverse=True)
+
+    eigenvals_full = [p[0] for p in pairs]
+    eigenvecs_full = [p[1] for p in pairs]
+
+    # 🔥 FIX 3: select top-k AFTER full PCA
+    k = min(k, len(eigenvals_full))
+    eigenvals = eigenvals_full[:k]
+    eigenvecs = eigenvecs_full[:k]
+
+    # 🔥 FIX 4: correct variance calculation
+    total_var = sum(eigenvals_full) or 1.0
     var_ratios = [v / total_var for v in eigenvals]
+
     cum_var = []
     running = 0.0
     for v in var_ratios:
         running += v
         cum_var.append(running)
+
+    # projections
     all_centred = [vec_sub(v, mean) if center else v[:] for v in all_vecs]
     all_scores = [[vec_dot(c, ev) for ev in eigenvecs] for c in all_centred]
+
     model = {
-        'sz': sz, 'is_rgb': is_rgb, 'k': len(eigenvals), 'D': D, 'N': N,
-        'mean': mean, 'eigenvecs': eigenvecs, 'eigenvals': eigenvals,
-        'var_ratios': var_ratios, 'cum_var': cum_var,
-        'all_scores': all_scores, 'all_centred': all_centred,
-        'train_idx': train_idx, 'test_idx': test_idx,
+        'sz': sz,
+        'is_rgb': is_rgb,
+        'k': k,
+        'D': D,
+        'N': N,
+        'mean': mean,
+        'eigenvecs': eigenvecs,
+        'eigenvals': eigenvals,
+        'full_eigenvals': eigenvals_full,  # 🔥 NEW
+        'var_ratios': var_ratios,
+        'cum_var': cum_var,
+        'all_scores': all_scores,
+        'all_centred': all_centred,
+        'train_idx': train_idx,
+        'test_idx': test_idx,
         'all_vecs': all_vecs
     }
+
     session_model[sid] = model
-    final_var = cum_var[min(k, len(cum_var)) - 1] * 100
+
+    final_var = cum_var[-1] * 100 if cum_var else 0
+
     return jsonify({
-        'k': len(eigenvals),
-        'D': D, 'N': N,
+        'k': k,
+        'D': D,
+        'N': N,
         'var_ratios': var_ratios,
         'cum_var': cum_var,
         'eigenvals': eigenvals,
         'final_var': round(final_var, 2),
-        'top_var': round(var_ratios[0] * 100, 2)
+        'top_var': round(var_ratios[0] * 100, 2) if var_ratios else 0
     })
 
 @app.route('/eigenfaces', methods=['POST'])
@@ -306,28 +350,41 @@ def eigenfaces():
                                model['sz'], model['is_rgb'])
         result.append({'pc': ci + 1, 'image': b64})
     return jsonify({'eigenfaces': result})
-
 @app.route('/reconstruct', methods=['POST'])
 def reconstruct():
     data = request.json
     sid = data.get('sid', 'default')
     img_idx = int(data.get('img_idx', 0))
     n_comp = int(data.get('n_comp', 10))
+
     model = session_model.get(sid)
     if not model:
         return jsonify({'error': 'No model'}), 400
+
+    # 🔥 SAFE ORIGINAL FETCH
+    orig_img_b64 = None
+    if 'orig_images' in model:
+        orig_img_b64 = model['orig_images'][img_idx]
+
     orig = model['all_vecs'][img_idx]
     centred = model['all_centred'][img_idx]
     scores = model['all_scores'][img_idx]
+
     recon = reconstruct_vec(centred, scores, n_comp, model['mean'], model['eigenvecs'])
+
     residual = [min(1.0, abs(orig[j] - recon[j]) * 5) for j in range(len(orig))]
     mse = compute_mse(orig, recon)
+
     sz = model['sz']
     is_rgb = model['is_rgb']
+
     return jsonify({
-        'orig_b64':   vec_to_image_b64(orig,     sz, is_rgb),
-        'recon_b64':  vec_to_image_b64(recon,    sz, is_rgb),
-        'resid_b64':  vec_to_image_b64(residual, sz, is_rgb),
+        # 🔥 REAL ORIGINAL IMAGE
+        'orig_b64': orig_img_b64 if orig_img_b64 else vec_to_image_b64(orig, sz, is_rgb),
+
+        'recon_b64': vec_to_image_b64(recon, sz, is_rgb),
+        'resid_b64': vec_to_image_b64(residual, sz, is_rgb),
+
         'mse': round(mse, 8),
         'dims': f'{sz}x{sz} · {model["D"]} dims'
     })
