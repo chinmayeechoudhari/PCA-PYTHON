@@ -10,7 +10,7 @@ import io
 import base64
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MODEL_FOLDER'] = 'models'
 
@@ -149,6 +149,11 @@ def vec_to_image_b64(vec, sz, is_rgb):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/studio')
+def studio():
+    return render_template('studio.html')
 
 @app.route('/upload', methods=['POST'])
 def upload():

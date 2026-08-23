@@ -1,1 +1,123 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PCA Studio — Principal Component Analysis from Scratch</title><link rel="stylesheet" href="/static/css/landing.css"></head><body><main class="landing"><div class="noise"></div><header class="nav"><a class="brand" href="/"><div class="brand-mark">◈</div><span>PCA<span>Studio</span></span></a><div class="nav-right"><a class="nav-link" href="#how">How it works</a><a class="nav-link" href="#pipeline">Pipeline</a><button class="ghost" onclick="launchStudio()">Launch Studio ↗</button></div></header><section class="hero"><div class="reveal"><div class="eyebrow"><span class="pulse"></span>Interactive ML Laboratory</div><h1>Principal Component Analysis.<br><span class="accent">Built from scratch.</span></h1><p class="hero-copy">A visual PCA laboratory for understanding <strong>dimensionality reduction</strong>, eigenvectors, variance, reconstruction and anomaly detection — without NumPy or scikit-learn doing the mathematics for you.</p><div class="actions"><button class="primary" onclick="launchStudio()">Launch PCA Studio →</button><button class="secondary" onclick="document.getElementById('how').scrollIntoView()">Explore the system</button></div><div class="micro">PYTHON · FLASK · PILLOW · JAVASCRIPT · CHART.JS</div></div><div class="visual reveal"><div class="orbit"><span class="orbit-dot"></span></div><div class="matrix"><div class="grid-lines"></div><div class="scan"></div><div class="axis-x"></div><div class="axis-y"></div><div class="pc-line"></div><span class="pc-label pc1">PC 1</span><span class="pc-label pc2">PC 2</span><div class="cloud" id="cloud"></div><div class="hud"><span>DIMENSIONALITY_REDUCTION</span><span>LIVE / PCA_CORE</span></div></div></div></section><section class="section reveal" id="how"><div class="section-head"><div><div class="kicker">01 / FIRST PRINCIPLES</div><h2>No black boxes.</h2></div><p>Every important PCA operation is implemented explicitly so the algorithm can be inspected, visualised and understood.</p></div><div class="cards"><article class="card"><div class="card-num">01</div><h3>Mean Centering</h3><p>Remove the feature-wise mean to centre the data around the origin.</p></article><article class="card"><div class="card-num">02</div><h3>Covariance</h3><p>Build the covariance or Gram matrix from the centred observations.</p></article><article class="card"><div class="card-num">03</div><h3>Eigenvectors</h3><p>Use power iteration to discover the directions of maximum variance.</p></article><article class="card"><div class="card-num">04</div><h3>Projection</h3><p>Project observations into principal-component space and reconstruct them.</p></article></div></section><section class="section reveal" id="pipeline"><div class="section-head"><div><div class="kicker">02 / THE WORKFLOW</div><h2>From pixels to principal space.</h2></div><p>Eight focused stages turn an image dataset into an interactive PCA experiment.</p></div><div class="pipeline"><div class="step"><b>01</b><span>DATA</span></div><div class="step"><b>02</b><span>SPLIT</span></div><div class="step"><b>03</b><span>TRAIN</span></div><div class="step"><b>04</b><span>RESULTS</span></div><div class="step"><b>05</b><span>EVALUATE</span></div><div class="step"><b>06</b><span>RECONSTRUCT</span></div><div class="step"><b>07</b><span>ANOMALY</span></div><div class="step"><b>08</b><span>PROJECT</span></div></div></section><section class="section reveal"><div class="cta"><div><div class="kicker">03 / EXPERIMENT</div><h2>See PCA instead of reading about it.</h2><p>Upload images, choose k, train the model and inspect the variance, eigenfaces, reconstruction error and 2D projection.</p></div><button class="primary" onclick="launchStudio()">Enter PCA Studio →</button></div></section><footer class="footer"><span>PCA STUDIO / PYTHON EDITION</span><span>BUILT FROM FIRST PRINCIPLES</span></footer></main><script>function launchStudio(){document.body.classList.add('leaving');setTimeout(()=>location.href='/static/studio.html',240)}const cloud=document.getElementById('cloud');for(let i=0;i<34;i++){const p=document.createElement('i');p.className='point '+(i%5===0?'g':'');p.style.left=(8+Math.random()*84)+'%';p.style.top=(8+Math.random()*82)+'%';p.style.animationDelay=(Math.random()*-4)+'s';cloud.appendChild(p)}const obs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible')}),{threshold:.12});document.querySelectorAll('.reveal').forEach(e=>obs.observe(e));</script><style>body.leaving .landing{animation:fadeOut .32s ease forwards}@keyframes fadeOut{to{opacity:0;transform:scale(.985)}}</style></body></html>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PCA Studio — Principal Component Analysis from Scratch</title>
+  <link rel="stylesheet" href="/static/css/landing.css">
+</head>
+
+<body>
+  <main class="landing">
+    <div class="noise"></div>
+    <header class="nav"><a class="brand" href="/">
+        <div class="brand-mark">◈</div><span>PCA<span>Studio</span></span>
+      </a>
+      <div class="nav-right"><a class="nav-link" href="#how">How it works</a><a class="nav-link"
+          href="#pipeline">Pipeline</a><button class="ghost" onclick="launchStudio()">Launch Studio ↗</button></div>
+    </header>
+    <section class="hero">
+      <div class="reveal">
+        <div class="eyebrow"><span class="pulse"></span>Interactive ML Laboratory</div>
+        <h1>Principal Component Analysis.<br><span class="accent">Built from scratch.</span></h1>
+        <p class="hero-copy">A visual PCA laboratory for understanding <strong>dimensionality reduction</strong>,
+          eigenvectors, variance, reconstruction and anomaly detection — without NumPy or scikit-learn doing the
+          mathematics for you.</p>
+        <div class="actions"><button class="primary" onclick="launchStudio()">Launch PCA Studio →</button><button
+            class="secondary" onclick="document.getElementById('how').scrollIntoView()">Explore the system</button>
+        </div>
+        <div class="micro">PYTHON · FLASK · PILLOW · JAVASCRIPT · CHART.JS</div>
+      </div>
+      <div class="visual reveal">
+        <div class="orbit"><span class="orbit-dot"></span></div>
+        <div class="matrix">
+          <div class="grid-lines"></div>
+          <div class="scan"></div>
+          <div class="axis-x"></div>
+          <div class="axis-y"></div>
+          <div class="pc-line"></div><span class="pc-label pc1">PC 1</span><span class="pc-label pc2">PC 2</span>
+          <div class="cloud" id="cloud"></div>
+          <div class="hud"><span>DIMENSIONALITY_REDUCTION</span><span>LIVE / PCA_CORE</span></div>
+        </div>
+      </div>
+    </section>
+    <section class="section reveal" id="how">
+      <div class="section-head">
+        <div>
+          <div class="kicker">01 / FIRST PRINCIPLES</div>
+          <h2>No black boxes.</h2>
+        </div>
+        <p>Every important PCA operation is implemented explicitly so the algorithm can be inspected, visualised and
+          understood.</p>
+      </div>
+      <div class="cards">
+        <article class="card">
+          <div class="card-num">01</div>
+          <h3>Mean Centering</h3>
+          <p>Remove the feature-wise mean to centre the data around the origin.</p>
+        </article>
+        <article class="card">
+          <div class="card-num">02</div>
+          <h3>Covariance</h3>
+          <p>Build the covariance or Gram matrix from the centred observations.</p>
+        </article>
+        <article class="card">
+          <div class="card-num">03</div>
+          <h3>Eigenvectors</h3>
+          <p>Use power iteration to discover the directions of maximum variance.</p>
+        </article>
+        <article class="card">
+          <div class="card-num">04</div>
+          <h3>Projection</h3>
+          <p>Project observations into principal-component space and reconstruct them.</p>
+        </article>
+      </div>
+    </section>
+    <section class="section reveal" id="pipeline">
+      <div class="section-head">
+        <div>
+          <div class="kicker">02 / THE WORKFLOW</div>
+          <h2>From pixels to principal space.</h2>
+        </div>
+        <p>Eight focused stages turn an image dataset into an interactive PCA experiment.</p>
+      </div>
+      <div class="pipeline">
+        <div class="step"><b>01</b><span>DATA</span></div>
+        <div class="step"><b>02</b><span>SPLIT</span></div>
+        <div class="step"><b>03</b><span>TRAIN</span></div>
+        <div class="step"><b>04</b><span>RESULTS</span></div>
+        <div class="step"><b>05</b><span>EVALUATE</span></div>
+        <div class="step"><b>06</b><span>RECONSTRUCT</span></div>
+        <div class="step"><b>07</b><span>ANOMALY</span></div>
+        <div class="step"><b>08</b><span>PROJECT</span></div>
+      </div>
+    </section>
+    <section class="section reveal">
+      <div class="cta">
+        <div>
+          <div class="kicker">03 / EXPERIMENT</div>
+          <h2>See PCA instead of reading about it.</h2>
+          <p>Upload images, choose k, train the model and inspect the variance, eigenfaces, reconstruction error and 2D
+            projection.</p>
+        </div><button class="primary" onclick="launchStudio()">Enter PCA Studio →</button>
+      </div>
+    </section>
+    <footer class="footer"><span>PCA STUDIO / PYTHON EDITION</span><span>BUILT FROM FIRST PRINCIPLES</span></footer>
+  </main>
+  <script>function launchStudio() { document.body.classList.add('leaving'); setTimeout(() => location.href = '/studio', 240) } const cloud = document.getElementById('cloud'); for (let i = 0; i < 34; i++) { const p = document.createElement('i'); p.className = 'point ' + (i % 5 === 0 ? 'g' : ''); p.style.left = (8 + Math.random() * 84) + '%'; p.style.top = (8 + Math.random() * 82) + '%'; p.style.animationDelay = (Math.random() * -4) + 's'; cloud.appendChild(p) } const obs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible') }), { threshold: .12 }); document.querySelectorAll('.reveal').forEach(e => obs.observe(e));</script>
+  <style>
+    body.leaving .landing {
+      animation: fadeOut .32s ease forwards
+    }
+
+    @keyframes fadeOut {
+      to {
+        opacity: 0;
+        transform: scale(.985)
+      }
+    }
+  </style>
+</body>
+
+</html>
